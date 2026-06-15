@@ -130,7 +130,7 @@ struct MenuContent: View {
             if let t = store.lastUpdated {
                 Text("更新于 \(t.formatted(date: .omitted, time: .standard))")
                     .font(.system(size: 10))
-                    .foregroundStyle(.secondary)
+                    .foregroundStyle(.white)
                     .padding(.horizontal, 12)
                     .padding(.bottom, 8)
 

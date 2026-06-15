@@ -95,7 +95,7 @@ struct FloatingCardView: View {
             if store.quotas.isEmpty && store.lastError == nil {
                 Text("加载中…")
                     .font(.system(size: 11))
-                    .foregroundStyle(.secondary)
+                    .foregroundStyle(.white)
             } else if let err = store.lastError {
                 Text(err)
                     .font(.system(size: 10))
@@ -107,12 +107,13 @@ struct FloatingCardView: View {
                         HStack {
                             Text("\(q.displayName)·\(q.intervalWindowLabel)周期")
                                 .font(.system(size: 10, weight: .semibold))
+                                .foregroundStyle(.white)
                             Spacer()
                         }
                         HStack(spacing: 4) {
                             Text("时")
                                 .font(.system(size: 9))
-                                .foregroundStyle(.secondary)
+                                .foregroundStyle(.white.opacity(0.85))
                                 .frame(width: 12, alignment: .leading)
                             Text("\(q.intervalRemainingPercent)%")
                                 .font(.system(size: 9, weight: .semibold))
@@ -122,11 +123,17 @@ struct FloatingCardView: View {
                             ProgressView(value: Double(q.intervalRemainingPercent), total: 100)
                                 .progressViewStyle(.linear)
                                 .tint(color(for: q.intervalRemainingPercent))
+                                // Explicit track so the colored fill is
+                                // visible against the .regularMaterial
+                                // background. Default track is too pale.
+                                .background(
+                                    Capsule().fill(Color.white.opacity(0.15))
+                                )
                         }
                         HStack(spacing: 4) {
                             Text("周")
                                 .font(.system(size: 9))
-                                .foregroundStyle(.secondary)
+                                .foregroundStyle(.white.opacity(0.85))
                                 .frame(width: 12, alignment: .leading)
                             Text("\(q.weeklyRemainingPercent)%")
                                 .font(.system(size: 9, weight: .semibold))
@@ -136,15 +143,18 @@ struct FloatingCardView: View {
                             ProgressView(value: Double(q.weeklyRemainingPercent), total: 100)
                                 .progressViewStyle(.linear)
                                 .tint(color(for: q.weeklyRemainingPercent))
+                                .background(
+                                    Capsule().fill(Color.white.opacity(0.15))
+                                )
                         }
                         HStack {
                             Text(intervalCycleLabel(q))
                                 .font(.system(size: 8))
-                                .foregroundStyle(.tertiary)
+                                .foregroundStyle(.white.opacity(0.85))
                             Spacer()
                             Text(weeklyCycleLabel(q))
                                 .font(.system(size: 8))
-                                .foregroundStyle(.tertiary)
+                                .foregroundStyle(.white.opacity(0.85))
                         }
                     }
                     .padding(.vertical, 1)
