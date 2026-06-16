@@ -13,15 +13,30 @@ cd "$(dirname "$0")"
 VERSION=$(plutil -extract CFBundleShortVersionString raw MiniMaxQuota.app/Contents/Info.plist 2>/dev/null || echo "0.1.0")
 NAME="MiniMaxQuota"
 ZIP="${NAME}-v${VERSION}.zip"
+SDK="$(xcrun --sdk macosx --show-sdk-path)"
+MODULE_CACHE="$(pwd)/.build-modulecache"
 
-echo "→ building release (optimized)"
-swift build -c release 2>&1 | tail -3
+# Clean previous artifacts
+rm -rf "${NAME}.app" "${NAME}-v"*.zip
+rm -rf .build-dist "${MODULE_CACHE}"
+mkdir -p .build-dist "${MODULE_CACHE}"
 
-echo "→ rebuilding bundle with release binary"
-rm -rf "${NAME}.app"
+echo "→ building release (optimized, direct swiftc)"
+# We bypass `swift build` here because the SwiftPM driver in this environment
+# invokes `sandbox-exec` to wrap the manifest compile, which fails inside
+# nested sandboxes (e.g. when this script runs from a sandboxed shell).
+# Direct swiftc is equivalent for a single-target executable package.
+xcrun swiftc \
+    -O \
+    -target arm64-apple-macosx13.0 \
+    -sdk "${SDK}" \
+    -o ".build-dist/${NAME}" \
+    Sources/${NAME}/*.swift
+
+echo "→ assembling bundle"
 mkdir -p "${NAME}.app/Contents/MacOS"
 mkdir -p "${NAME}.app/Contents/Resources"
-cp ".build/release/${NAME}" "${NAME}.app/Contents/MacOS/${NAME}"
+cp ".build-dist/${NAME}" "${NAME}.app/Contents/MacOS/${NAME}"
 chmod +x "${NAME}.app/Contents/MacOS/${NAME}"
 
 cat > "${NAME}.app/Contents/Info.plist" <<'PLIST'

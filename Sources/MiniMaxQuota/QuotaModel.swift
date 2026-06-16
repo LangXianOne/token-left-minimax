@@ -137,6 +137,10 @@ enum QuotaFetcher {
         case nonZeroExit(Int32, String)
         case parseFailed(String)
         case apiError(statusCode: Int, msg: String)
+        /// `mmx` is not installed on this machine. Surfaced as its own case so
+        /// the UI can render a first-run install prompt instead of a generic
+        /// red error.
+        case mmxMissing
 
         var errorDescription: String? {
             switch self {
@@ -146,6 +150,8 @@ enum QuotaFetcher {
                 return "Failed to parse mmx response: \(body.prefix(200))"
             case .apiError(let c, let m):
                 return "mmx API error \(c): \(m)"
+            case .mmxMissing:
+                return "未检测到 mmx CLI"
             }
         }
     }
@@ -155,10 +161,7 @@ enum QuotaFetcher {
         // Recipients of this app may have installed mmx via npm, brew (Intel
         // vs Apple Silicon), or nix — all of which land in different paths.
         guard let mmxPath = Self.locateMmx() else {
-            throw FetchError.parseFailed(
-                "`mmx` CLI not found. Install with `brew install mmx-cli` " +
-                "or `npm install -g mmx-cli`, then relaunch."
-            )
+            throw FetchError.mmxMissing
         }
 
         let process = Process()
@@ -198,6 +201,34 @@ enum QuotaFetcher {
                                       msg: parsed.baseRespStatusMsg)
         }
         return parsed
+    }
+
+    /// True if `mmx` can be located on disk. Cheap — just walks the same
+    /// candidate list as `locateMmx()` without spawning a process. Used by the
+    /// UI to show a first-run install prompt independent of the polling path.
+    static func isMmxInstalled() -> Bool { locateMmx() != nil }
+
+    /// Commands we suggest in the first-run install prompt. Surfaced as a
+    /// struct (not a string) so the UI can render monospaced copy and also
+    /// offer a "Copy" affordance per row.
+    struct InstallCommand: Identifiable, Hashable {
+        let id: String
+        let label: String
+        let command: String
+        let note: String
+
+        static let primary: [InstallCommand] = [
+            .init(id: "brew",
+                  label: "Homebrew",
+                  command: "brew install mmx-cli",
+                  note: "推荐 · macOS 原生包管理器"),
+            .init(id: "npm",
+                  label: "npm",
+                  command: "npm install -g mmx-cli",
+                  note: "需要 Node.js 18+"),
+        ]
+        static let loginCommand = "mmx auth login --api-key <你的key>"
+        static let verifyCommand = "mmx quota show"
     }
 
     /// Find the `mmx` binary by consulting PATH, then a handful of common

@@ -14,13 +14,22 @@ struct MiniMaxQuotaApp: App {
     }()
     @StateObject private var store = MiniMaxQuotaApp.sharedStore
     @StateObject private var floating = FloatingWindowController(store: MiniMaxQuotaApp.sharedStore)
+    /// Cached on first appearance so we don't re-walk the disk on every
+    /// menu-bar open. Recomputed only when the user clicks "重新检测".
+    @State private var mmxInstalled: Bool = QuotaFetcher.isMmxInstalled()
 
     var body: some Scene {
         MenuBarExtra {
-            MenuContent(store: store, floating: floating)
+            MenuContent(store: store,
+                        floating: floating,
+                        mmxInstalled: mmxInstalled,
+                        onRescanMmx: {
+                            mmxInstalled = QuotaFetcher.isMmxInstalled()
+                            Task { await store.refresh() }
+                        })
                 .environmentObject(store)
         } label: {
-            MenuBarLabel(store: store)
+            MenuBarLabel(store: store, mmxInstalled: mmxInstalled)
         }
         .menuBarExtraStyle(.window)
     }
@@ -29,13 +38,17 @@ struct MiniMaxQuotaApp: App {
 /// The little glyph + number that lives in the system menu bar.
 private struct MenuBarLabel: View {
     @ObservedObject var store: QuotaStore
+    let mmxInstalled: Bool
 
     var body: some View {
         // SF Symbol chosen for legibility at 18pt menu-bar size.
         // The trailing number is the lowest interval % across active models.
+        // When mmx is missing we show a warning glyph so users notice without
+        // having to open the popup.
         HStack(spacing: 2) {
-            Image(systemName: "chart.bar.xaxis")
-            if let worst = activeWorstPercent(store.quotas) {
+            Image(systemName: mmxInstalled ? "chart.bar.xaxis" : "exclamationmark.triangle")
+                .foregroundStyle(mmxInstalled ? Color.primary : Color.orange)
+            if mmxInstalled, let worst = activeWorstPercent(store.quotas) {
                 Text("\(worst)")
                     .monospacedDigit()
             }
@@ -52,47 +65,41 @@ private struct MenuBarLabel: View {
 struct MenuContent: View {
     @ObservedObject var store: QuotaStore
     @ObservedObject var floating: FloatingWindowController
+    let mmxInstalled: Bool
+    let onRescanMmx: () -> Void
 
     var body: some View {
         VStack(alignment: .leading, spacing: 0) {
             header
 
-            if let err = store.lastError {
-                Text(err)
-                    .font(.system(size: 11))
-                    .foregroundStyle(.red)
-                    .padding(.horizontal, 12)
-                    .padding(.vertical, 8)
-            }
-
-            if !store.quotas.isEmpty {
-                ForEach(store.quotas) { q in
-                    QuotaRow(quota: q)
+            // First-run install prompt. Takes priority over everything else:
+            // if mmx is missing, the quota data is meaningless anyway, so we
+            // guide the user through install → login → verify before showing
+            // the rest of the UI. A "我已安装,重新检测" button rescan the disk
+            // for the binary (covers the case where the user installed it
+            // in a separate terminal while the app was running).
+            if !mmxInstalled {
+                MmxInstallPrompt(onRescan: onRescanMmx)
+            } else {
+                if let err = store.lastError {
+                    Text(err)
+                        .font(.system(size: 11))
+                        .foregroundStyle(.red)
+                        .padding(.horizontal, 12)
+                        .padding(.vertical, 8)
                 }
-            } else if store.lastError == nil {
-                Text("加载中…")
-                    .font(.system(size: 11))
-                    .foregroundStyle(.secondary)
-                    .padding(.horizontal, 12)
-                    .padding(.vertical, 8)
-            } else if store.lastError?.contains("mmx") == true {
-                // Friendlier install hint when the failure looks like a missing mmx.
-                VStack(alignment: .leading, spacing: 4) {
-                    Text("需要安装 mmx CLI:")
-                        .font(.system(size: 11, weight: .semibold))
-                    Text("brew install mmx-cli")
-                        .font(.system(size: 11, design: .monospaced))
-                    Text("或")
+
+                if !store.quotas.isEmpty {
+                    ForEach(store.quotas) { q in
+                        QuotaRow(quota: q)
+                    }
+                } else if store.lastError == nil {
+                    Text("加载中…")
                         .font(.system(size: 11))
                         .foregroundStyle(.secondary)
-                    Text("npm install -g mmx-cli")
-                        .font(.system(size: 11, design: .monospaced))
-                    Text("然后: mmx auth login --api-key <你的key>")
-                        .font(.system(size: 10, design: .monospaced))
-                        .foregroundStyle(.secondary)
+                        .padding(.horizontal, 12)
+                        .padding(.vertical, 8)
                 }
-                .padding(.horizontal, 12)
-                .padding(.vertical, 8)
             }
 
             Divider().padding(.vertical, 6)
@@ -102,6 +109,7 @@ struct MenuContent: View {
                     floating.toggle()
                 }
                 .buttonStyle(.borderless)
+                .disabled(!mmxInstalled)
 
                 Spacer()
 
@@ -117,12 +125,14 @@ struct MenuContent: View {
                 }
                 .menuStyle(.borderlessButton)
                 .fixedSize()
+                .disabled(!mmxInstalled)
 
                 Button("立即刷新") {
                     Task { await store.refresh() }
                 }
                 .buttonStyle(.borderless)
                 .keyboardShortcut("r")
+                .disabled(!mmxInstalled)
             }
             .padding(.horizontal, 12)
             .padding(.bottom, 6)
@@ -130,9 +140,10 @@ struct MenuContent: View {
             if let t = store.lastUpdated {
                 Text("更新于 \(t.formatted(date: .omitted, time: .standard))")
                     .font(.system(size: 10))
-                    .foregroundStyle(.white)
+                    .foregroundStyle(.secondary)
                     .padding(.horizontal, 12)
                     .padding(.bottom, 8)
+            }
 
             Divider().padding(.vertical, 4)
 
@@ -151,10 +162,9 @@ struct MenuContent: View {
             }
             .padding(.horizontal, 12)
             .padding(.bottom, 8)
-            }
         }
         .padding(.vertical, 8)
-        .frame(width: 320)
+        .frame(width: 340)
     }
 
     private var header: some View {
@@ -162,9 +172,15 @@ struct MenuContent: View {
             Text("MiniMax 配额")
                 .font(.headline)
             Spacer()
-            Text(store.quotas.isEmpty ? "—" : "\(store.quotas.count) 项")
-                .font(.caption)
-                .foregroundStyle(.secondary)
+            if mmxInstalled {
+                Text(store.quotas.isEmpty ? "—" : "\(store.quotas.count) 项")
+                    .font(.caption)
+                    .foregroundStyle(.secondary)
+            } else {
+                Text("需要先安装 mmx")
+                    .font(.caption)
+                    .foregroundStyle(.orange)
+            }
         }
         .padding(.horizontal, 12)
         .padding(.bottom, 6)
@@ -177,6 +193,139 @@ struct MenuContent: View {
         case ..<60:    return "每 \(Int(store.refreshInterval)) 秒"
         case 60..<300: return "每分钟"
         default:       return "每 \(Int(store.refreshInterval / 60)) 分钟"
+        }
+    }
+}
+
+/// First-run install prompt. Renders the two install commands the user can
+/// pick from, with one-click copy-to-clipboard, plus the login + verify
+/// commands to run afterwards. Designed to be skim-readable so a first-time
+/// user can install + log in without leaving the menu bar.
+private struct MmxInstallPrompt: View {
+    let onRescan: () -> Void
+    /// Short-lived "Copied!" flash per row, so the user knows the click
+    /// actually did something. Keyed by command id.
+    @State private var copiedId: String?
+
+    var body: some View {
+        VStack(alignment: .leading, spacing: 10) {
+            HStack(spacing: 6) {
+                Image(systemName: "exclamationmark.triangle.fill")
+                    .foregroundStyle(.orange)
+                Text("首次运行 — 需要安装 mmx CLI")
+                    .font(.system(size: 12, weight: .semibold))
+            }
+
+            Text("MiniMaxQuota 只是 mmx 的 GUI 壳,数据全部来自 `mmx quota show`。挑一种方式装:")
+                .font(.system(size: 11))
+                .foregroundStyle(.secondary)
+                .fixedSize(horizontal: false, vertical: true)
+
+            ForEach(QuotaFetcher.InstallCommand.primary) { cmd in
+                CommandRow(
+                    title: cmd.label,
+                    note: cmd.note,
+                    command: cmd.command,
+                    copied: copiedId == cmd.id,
+                    onCopy: {
+                        copy(cmd.command, id: cmd.id)
+                    }
+                )
+            }
+
+            Divider().padding(.vertical, 2)
+
+            Text("装好后:")
+                .font(.system(size: 11, weight: .semibold))
+
+            CommandRow(
+                title: "登录账号",
+                note: "OAuth 浏览器跳转,或直接粘 API key",
+                command: QuotaFetcher.InstallCommand.loginCommand,
+                copied: copiedId == "login",
+                onCopy: {
+                    copy(QuotaFetcher.InstallCommand.loginCommand, id: "login")
+                }
+            )
+
+            CommandRow(
+                title: "验证能拉到数据",
+                note: "应输出若干行 quota,看到数据就 OK",
+                command: QuotaFetcher.InstallCommand.verifyCommand,
+                copied: copiedId == "verify",
+                onCopy: {
+                    copy(QuotaFetcher.InstallCommand.verifyCommand, id: "verify")
+                }
+            )
+
+            Button {
+                onRescan()
+            } label: {
+                HStack(spacing: 4) {
+                    Image(systemName: "arrow.clockwise")
+                    Text("我已安装,重新检测")
+                }
+                .font(.system(size: 11))
+            }
+            .buttonStyle(.borderedProminent)
+            .controlSize(.small)
+            .padding(.top, 2)
+        }
+        .padding(.horizontal, 12)
+        .padding(.vertical, 8)
+    }
+
+    private func copy(_ text: String, id: String) {
+        let pb = NSPasteboard.general
+        pb.clearContents()
+        pb.setString(text, forType: .string)
+        copiedId = id
+        // Brief flash; the user sees the change.
+        DispatchQueue.main.asyncAfter(deadline: .now() + 1.2) {
+            if copiedId == id { copiedId = nil }
+        }
+    }
+}
+
+/// One row of the install prompt: title + helper text + monospaced command
+/// + a small "Copy" button. State for the "Copied!" flash lives on the parent
+/// (MmxInstallPrompt) to keep the row itself dumb and re-render-friendly.
+private struct CommandRow: View {
+    let title: String
+    let note: String
+    let command: String
+    let copied: Bool
+    let onCopy: () -> Void
+
+    var body: some View {
+        VStack(alignment: .leading, spacing: 3) {
+            HStack {
+                Text(title)
+                    .font(.system(size: 11, weight: .semibold))
+                Text("· \(note)")
+                    .font(.system(size: 10))
+                    .foregroundStyle(.secondary)
+                Spacer()
+            }
+            HStack(spacing: 6) {
+                Text(command)
+                    .font(.system(size: 11, design: .monospaced))
+                    .padding(.horizontal, 6)
+                    .padding(.vertical, 3)
+                    .background(
+                        RoundedRectangle(cornerRadius: 4)
+                            .fill(Color.gray.opacity(0.15))
+                    )
+                    .textSelection(.enabled)
+                Spacer()
+                Button(action: onCopy) {
+                    Text(copied ? "已复制" : "复制")
+                        .font(.system(size: 10))
+                        .frame(minWidth: 36)
+                }
+                .buttonStyle(.bordered)
+                .controlSize(.mini)
+            }
         }
     }
 }

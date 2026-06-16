@@ -14,21 +14,42 @@ reads from `mmx quota show`.
 - 桌面悬浮小窗(可拖、always-on-top)
 - 可配置刷新间隔(15 秒 / 30 秒 / 1 分钟 / 5 分钟)
 - 手动立即刷新
+- **首次运行自动检测 mmx CLI** —— 没装的话直接在 popup 里给安装命令 + 一键复制,不用翻文档
 - **不存储 API key** —— 完全通过 `mmx` 子进程访问,key 由 `mmx` 自己在 `~/.mmx/config.json` 管理
 
-## What you need first
+## Install
 
-`mmx` CLI 必须先装(本 app 是它的 GUI 壳):
+### 1. 下载 app
+
+从 GitHub **Releases** 页面下载最新的 `MiniMaxQuota-v0.1.0.zip`
+([Releases](../../releases))。
+
+### 2. 解压并放到 Applications
 
 ```bash
-# 方式 A:Homebrew
-brew install mmx-cli
-
-# 方式 B:npm(需要 Node.js 18+)
-npm install -g mmx-cli
+unzip MiniMaxQuota-v0.1.0.zip
+# 把 MiniMaxQuota.app 拖到 /Applications/ (或任何你喜欢的位置)
 ```
 
-登录你的 MiniMax 账号:
+### 3. 第一次启动需要绕过 Gatekeeper(ad-hoc 签名)
+
+```bash
+xattr -dr com.apple.quarantine /Applications/MiniMaxQuota.app
+open /Applications/MiniMaxQuota.app
+```
+
+不跑 `xattr` 那行也可以,只是首次启动要右键 → 打开。
+
+### 4. 装 mmx CLI(如果还没装)
+
+第一次打开 app,菜单栏图标会变成 ⚠️ 橙色三角警告,popup 里会直接列出安装命令,带"复制"按钮:
+
+- **Homebrew**:`brew install mmx-cli`
+- **npm**:`npm install -g mmx-cli`  (需要 Node.js 18+)
+
+装完点 popup 底部的 **"我已安装,重新检测"** 按钮,app 就会重新扫描磁盘,图标变回条形图,开始拉数据。
+
+### 5. 登录 MiniMax 账号
 
 ```bash
 # OAuth 浏览器跳转
@@ -38,37 +59,25 @@ mmx auth login
 mmx auth login --api-key sk-xxx...
 ```
 
-验证能拉到数据:
+验证能拉到数据(应输出几行 quota):
 
 ```bash
 mmx quota show
 ```
 
-## Install
-
-1. 下载 `MiniMaxQuota-v0.1.0.zip`
-2. 解压,把 `MiniMaxQuota.app` 拖到 `/Applications/`
-3. 第一次启动需要绕过 Gatekeeper(因为是 ad-hoc 签名):
-
-```bash
-xattr -dr com.apple.quarantine /Applications/MiniMaxQuota.app
-```
-
-4. 启动:
-
-```bash
-open /Applications/MiniMaxQuota.app
-```
-
-菜单栏右上角应出现条形图图标 📊 + 一个数字(最低剩余百分比)。
+装好后菜单栏右上角应出现条形图图标 📊 + 一个数字(最低剩余百分比)。
 
 ## Troubleshooting
+
+**菜单栏图标是橙色 ⚠️ 三角**
+
+popup 里会直接列安装命令。如果装完没自动识别,点 **"我已安装,重新检测"**。
 
 **菜单栏图标不出现 / popup 是空的**
 
 - 检查 `mmx quota show` 在终端里有没有输出
 - 检查 `mmx auth status` 显示已登录
-- 看 popup 里有没有红字"需要安装 mmx CLI"提示
+- 看 popup 里有没有红字"未检测到 mmx CLI"提示
 
 **popup 显示"加载中…"一直不变**
 
@@ -154,6 +163,15 @@ open MiniMaxQuota.app
 ./distribute.sh
 # 产出: MiniMaxQuota-v0.1.0.zip
 ```
+
+`distribute.sh` 用 `xcrun swiftc` 直接编译(不走 SwiftPM 驱动),避免在受限环境下 `swift build` 嵌套 `sandbox-exec` 失败 —— 单 target executable package 下二者等价。
+
+## Releasing a new version
+
+1. 改 `MiniMaxQuota.app/Contents/Info.plist` 里的 `CFBundleShortVersionString`
+2. 跑 `./distribute.sh` 生成新 zip
+3. `git tag v0.2.0 && git push --tags`
+4. 在 GitHub 上开 Release,把 zip 作为 binary asset 拖上去
 
 ## Distribution note
 

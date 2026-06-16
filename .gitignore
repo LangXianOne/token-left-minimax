@@ -5,6 +5,9 @@
 
 # Swift / SwiftPM
 .build/
+.build-dist/
+.build-modulecache/
+.build-modulecache-tests/
 .swiftpm/
 Package.resolved
 *.xcodeproj/
