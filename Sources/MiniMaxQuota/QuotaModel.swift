@@ -168,6 +168,17 @@ enum QuotaFetcher {
         process.executableURL = URL(fileURLWithPath: mmxPath)
         process.arguments = ["quota", "show", "--output", "json", "--non-interactive"]
 
+        // mmx is a `#!/usr/bin/env node` script, so `node` must be on PATH
+        // for the shebang to resolve. When launched via LaunchAgent (login
+        // item), PATH is minimal and won't include Node.js. We prepend the
+        // mmx binary directory (where `node` always lives alongside npm-
+        // installed CLIs) so `env` can find it regardless of launch context.
+        let mmxDir = (mmxPath as NSString).deletingLastPathComponent
+        var env = ProcessInfo.processInfo.environment
+        let currentPath = env["PATH"] ?? ""
+        env["PATH"] = "\(mmxDir):\(currentPath)"
+        process.environment = env
+
         let stdout = Pipe()
         let stderr = Pipe()
         process.standardOutput = stdout
