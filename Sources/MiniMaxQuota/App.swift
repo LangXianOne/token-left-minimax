@@ -49,7 +49,7 @@ private struct MenuBarLabel: View {
             Image(systemName: mmxInstalled ? "chart.bar.xaxis" : "exclamationmark.triangle")
                 .foregroundStyle(mmxInstalled ? Color.primary : Color.orange)
             if mmxInstalled, let worst = activeWorstPercent(store.quotas) {
-                Text("\(worst)")
+                Text("\(worst)%")
                     .monospacedDigit()
             }
         }
