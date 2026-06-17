@@ -74,9 +74,9 @@ Three files, all under `Sources/MiniMaxQuota/`:
   When adding a new install location, add an absolute path to `absoluteProbe`.
 - **The CLI is invoked with `--non-interactive`.** Without it, `mmx` can prompt
   on stdin and hang the subprocess forever.
-- **`video` bucket is filtered out** in `QuotaStore.refresh()` — intentional,
-  not displayed. Adding new model buckets to the UI may require revisiting
-  this filter.
+- **`hiddenModelNames`** in `QuotaStore.refresh()` controls which model buckets
+  are excluded from the UI. Currently empty — all returned models are displayed.
+  Add bucket names here if a model should be hidden.
 - **`mmxMissing` is its own error case**, separate from generic fetch failures,
   so the UI can render the first-run install prompt (`InstallCommand.primary`)
   instead of a red error.
