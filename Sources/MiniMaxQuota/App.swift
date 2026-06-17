@@ -118,6 +118,10 @@ struct MenuContent: View {
                     Button("30 秒") { store.setRefreshInterval(30) }
                     Button("1 分钟") { store.setRefreshInterval(60) }
                     Button("5 分钟") { store.setRefreshInterval(300) }
+                    Divider()
+                    Button("10 分钟") { store.setRefreshInterval(600) }
+                    Button("15 分钟") { store.setRefreshInterval(900) }
+                    Button("30 分钟") { store.setRefreshInterval(1800) }
                 } label: {
                     Text(refreshIntervalLabel)
                         .font(.system(size: 10))
