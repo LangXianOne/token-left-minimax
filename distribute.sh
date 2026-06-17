@@ -1,6 +1,6 @@
 #!/usr/bin/env bash
 # Build a release-style .app and zip it for sharing.
-# Output: ./MiniMaxQuota-v0.1.0.zip
+# Output: ./MiniMaxQuota-v<ver>.zip (version from Info.plist or hardcoded below)
 #
 # IMPORTANT: This bundle is ad-hoc signed. Recipients will need to
 # right-click → Open the first time (or run `xattr -dr com.apple.quarantine ...`)
@@ -10,7 +10,7 @@ set -euo pipefail
 
 cd "$(dirname "$0")"
 
-VERSION=$(plutil -extract CFBundleShortVersionString raw MiniMaxQuota.app/Contents/Info.plist 2>/dev/null || echo "0.1.0")
+VERSION=$(plutil -extract CFBundleShortVersionString raw MiniMaxQuota.app/Contents/Info.plist 2>/dev/null || echo "0.2.0")
 NAME="MiniMaxQuota"
 ZIP="${NAME}-v${VERSION}.zip"
 SDK="$(xcrun --sdk macosx --show-sdk-path)"
@@ -38,6 +38,7 @@ mkdir -p "${NAME}.app/Contents/MacOS"
 mkdir -p "${NAME}.app/Contents/Resources"
 cp ".build-dist/${NAME}" "${NAME}.app/Contents/MacOS/${NAME}"
 chmod +x "${NAME}.app/Contents/MacOS/${NAME}"
+cp "Sources/MiniMaxQuota/Resources/MiniMaxQuota.icns" "${NAME}.app/Contents/Resources/MiniMaxQuota.icns"
 
 cat > "${NAME}.app/Contents/Info.plist" <<'PLIST'
 <?xml version="1.0" encoding="UTF-8"?>
@@ -53,10 +54,12 @@ cat > "${NAME}.app/Contents/Info.plist" <<'PLIST'
     <key>CFBundleVersion</key>
     <string>1</string>
     <key>CFBundleShortVersionString</key>
-    <string>0.1.0</string>
+    <string>0.2.0</string>
     <key>CFBundlePackageType</key>
     <string>APPL</string>
     <key>CFBundleExecutable</key>
+    <string>MiniMaxQuota</string>
+    <key>CFBundleIconFile</key>
     <string>MiniMaxQuota</string>
     <key>LSMinimumSystemVersion</key>
     <string>13.0</string>

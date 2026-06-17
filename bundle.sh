@@ -28,6 +28,9 @@ echo "→ copying binary"
 cp "${BIN_SRC}" "${BIN_DST}"
 chmod +x "${BIN_DST}"
 
+echo "→ copying icon"
+cp "Sources/MiniMaxQuota/Resources/MiniMaxQuota.icns" "${APP_BUNDLE_DIR}/Contents/Resources/MiniMaxQuota.icns"
+
 echo "→ writing Info.plist"
 cat > "${APP_BUNDLE_DIR}/Contents/Info.plist" <<'PLIST'
 <?xml version="1.0" encoding="UTF-8"?>
@@ -47,6 +50,8 @@ cat > "${APP_BUNDLE_DIR}/Contents/Info.plist" <<'PLIST'
     <key>CFBundlePackageType</key>
     <string>APPL</string>
     <key>CFBundleExecutable</key>
+    <string>MiniMaxQuota</string>
+    <key>CFBundleIconFile</key>
     <string>MiniMaxQuota</string>
     <key>LSMinimumSystemVersion</key>
     <string>13.0</string>
