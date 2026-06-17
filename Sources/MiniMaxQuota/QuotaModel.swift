@@ -3,9 +3,8 @@ import Foundation
 /// One bucket of usage from `mmx quota show --output json`.
 ///
 /// `mmx` returns an array of these under `model_remains`. Known names include
-/// `general` (text/vision/audio pool), `video`, and others. The `video` bucket
-/// is filtered out in `QuotaStore.refresh()` because we don't display it.
-/// Field names mirror the CLI JSON.
+/// `general` (text/vision/audio pool), `video`, `speech`, `image`, `music`,
+/// `search`, and others. Field names mirror the CLI JSON.
 struct ModelQuota: Identifiable, Hashable, Codable {
     var id: String { modelName }
 
@@ -329,10 +328,10 @@ final class QuotaStore: ObservableObject {
         timer = nil
     }
 
-    /// Models to hide from the UI. The `mmx` API returns a `video` bucket we
-    /// don't want to display, so we filter it out at the store level — that
-    /// way every view (menu bar popup, floating window) gets the same list.
-    static let hiddenModelNames: Set<String> = ["video"]
+    /// Models to hide from the UI. Add bucket names here if a model should
+    /// be excluded from display. Filtering at the store level ensures both
+    /// the menu popup and the floating window see the same list.
+    static let hiddenModelNames: Set<String> = []
 
     func refresh() async {
         do {

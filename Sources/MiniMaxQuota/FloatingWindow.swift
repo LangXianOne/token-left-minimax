@@ -95,7 +95,7 @@ struct FloatingCardView: View {
             if store.quotas.isEmpty && store.lastError == nil {
                 Text("加载中…")
                     .font(.system(size: 11))
-                    .foregroundStyle(.white)
+                    .foregroundStyle(.secondary)
             } else if let err = store.lastError {
                 Text(err)
                     .font(.system(size: 10))
@@ -103,58 +103,46 @@ struct FloatingCardView: View {
                     .lineLimit(3)
             } else {
                 ForEach(store.quotas) { q in
-                    VStack(alignment: .leading, spacing: 2) {
+                    VStack(alignment: .leading, spacing: 4) {
                         HStack {
                             Text("\(q.displayName)·\(q.intervalWindowLabel)周期")
                                 .font(.system(size: 10, weight: .semibold))
-                                .foregroundStyle(.white)
                             Spacer()
                         }
-                        HStack(spacing: 4) {
+                        HStack(spacing: 6) {
                             Text("时")
                                 .font(.system(size: 9))
-                                .foregroundStyle(.white.opacity(0.85))
+                                .foregroundStyle(.secondary)
                                 .frame(width: 12, alignment: .leading)
                             Text("\(q.intervalRemainingPercent)%")
                                 .font(.system(size: 9, weight: .semibold))
                                 .monospacedDigit()
                                 .foregroundStyle(color(for: q.intervalRemainingPercent))
                                 .frame(width: 32, alignment: .trailing)
-                            ProgressView(value: Double(q.intervalRemainingPercent), total: 100)
-                                .progressViewStyle(.linear)
-                                .tint(color(for: q.intervalRemainingPercent))
-                                // Explicit track so the colored fill is
-                                // visible against the .regularMaterial
-                                // background. Default track is too pale.
-                                .background(
-                                    Capsule().fill(Color.white.opacity(0.15))
-                                )
+                            QuotaBar(value: q.intervalRemainingPercent,
+                                     color: color(for: q.intervalRemainingPercent))
                         }
-                        HStack(spacing: 4) {
+                        HStack(spacing: 6) {
                             Text("周")
                                 .font(.system(size: 9))
-                                .foregroundStyle(.white.opacity(0.85))
+                                .foregroundStyle(.secondary)
                                 .frame(width: 12, alignment: .leading)
                             Text("\(q.weeklyRemainingPercent)%")
                                 .font(.system(size: 9, weight: .semibold))
                                 .monospacedDigit()
                                 .foregroundStyle(color(for: q.weeklyRemainingPercent))
                                 .frame(width: 32, alignment: .trailing)
-                            ProgressView(value: Double(q.weeklyRemainingPercent), total: 100)
-                                .progressViewStyle(.linear)
-                                .tint(color(for: q.weeklyRemainingPercent))
-                                .background(
-                                    Capsule().fill(Color.white.opacity(0.15))
-                                )
+                            QuotaBar(value: q.weeklyRemainingPercent,
+                                     color: color(for: q.weeklyRemainingPercent))
                         }
                         HStack {
                             Text(intervalCycleLabel(q))
                                 .font(.system(size: 8))
-                                .foregroundStyle(.white.opacity(0.85))
+                                .foregroundStyle(.secondary)
                             Spacer()
                             Text(weeklyCycleLabel(q))
                                 .font(.system(size: 8))
-                                .foregroundStyle(.white.opacity(0.85))
+                                .foregroundStyle(.secondary)
                         }
                     }
                     .padding(.vertical, 1)
@@ -162,7 +150,7 @@ struct FloatingCardView: View {
             }
         }
         .padding(10)
-        .frame(width: 260)
+        .frame(width: 290)
         .background(
             RoundedRectangle(cornerRadius: 10)
                 .fill(.regularMaterial)
@@ -204,5 +192,26 @@ struct FloatingCardView: View {
         let in_: String
         if d > 0 { in_ = "\(d)天\(h)小时" } else if h > 0 { in_ = "\(h)小时" } else { in_ = "\(mins)分" }
         return "周→\(shortTime(q.weeklyEnd)) 剩\(in_)"
+    }
+}
+
+/// Custom progress bar that reliably renders its fill color.
+/// Replaces `ProgressView` + `.tint()` which can lose its tint in
+/// `NSHostingView` + material-background contexts.
+private struct QuotaBar: View {
+    let value: Int
+    let color: Color
+
+    var body: some View {
+        GeometryReader { geo in
+            let pct = min(max(CGFloat(value) / 100, 0), 1)
+            ZStack(alignment: .leading) {
+                Capsule().fill(.white.opacity(0.15))
+                Capsule()
+                    .fill(color)
+                    .frame(width: geo.size.width * pct)
+            }
+        }
+        .frame(height: 6)
     }
 }
